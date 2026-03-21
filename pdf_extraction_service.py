@@ -4,13 +4,13 @@ import os
 import re
 import tempfile
 from pathlib import Path
+
 try:
     from emergentintegrations.llm.chat import FileContentWithMimeType, LlmChat, UserMessage
 except ImportError:
     LlmChat = None
     UserMessage = None
     FileContentWithMimeType = None
-
 from pypdf import PdfReader
 
 from reconciliation_engine import standardize_bank_entries, standardize_invoices
@@ -130,6 +130,88 @@ def first_match(patterns, text):
     return None
 
 
+DATE_PATTERN = r"(?:\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{2,4})"
+AMOUNT_PATTERN = r"(?:-?\d{1,3}(?:[ .]\d{3})*|[-+]?\d+)[,\.]\d{2}(?:\s*(?:EUR|MAD|€|DH|DHS))?"
+
+
+def normalize_line(line: str):
+    return re.sub(r"\s+", " ", (line or "").strip())
+
+
+def infer_direction(text: str):
+    lowered = normalize_line(text).lower()
+    debit_markers = ["débit", "debit", "prlv", "prélèvement", "prelevement", "carte", "frais", "commission", "retrait", "virement emis"]
+    credit_markers = ["crédit", "credit", "virement", "versement", "vir recu", "vir reçu", "encaissement", "remise", "depot", "dépôt"]
+
+    if any(marker in lowered for marker in debit_markers):
+        return "debit"
+    if any(marker in lowered for marker in credit_markers):
+        return "credit"
+    return "credit"
+
+
+def extract_reference_from_text(text: str):
+    explicit_ref = first_match(
+        [
+            r"(?:r[ée]f[ée]rence|ref|n[°o])\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]{3,})",
+        ],
+        text,
+    )
+    if explicit_ref:
+        return explicit_ref
+
+    tokens = re.findall(r"\b[A-Z0-9][A-Z0-9\-_/]{5,}\b", normalize_line(text).upper())
+    for token in tokens:
+        if any(char.isdigit() for char in token) and any(char.isalpha() for char in token):
+            return token
+    return None
+
+
+def build_bank_row_from_block(text: str, fallback_currency: str | None = None):
+    normalized = normalize_line(text)
+    if not normalized:
+        return None
+
+    dates = re.findall(DATE_PATTERN, normalized)
+    amounts = re.findall(AMOUNT_PATTERN, normalized, flags=re.IGNORECASE)
+    if not dates or not amounts:
+        return None
+
+    booking_date = dates[0]
+    amount = amounts[-1]
+    cleaned_label = normalized
+    for date in dates[:2]:
+        cleaned_label = cleaned_label.replace(date, " ", 1)
+    cleaned_label = cleaned_label.replace(amount, " ", 1)
+    cleaned_label = re.sub(r"\b(?:date|valeur|op[ée]ration|d[ée]bit|cr[ée]dit|solde|page)\b", " ", cleaned_label, flags=re.IGNORECASE)
+    cleaned_label = normalize_line(cleaned_label)
+    if len(cleaned_label) < 3:
+        return None
+
+    return {
+        "booking_date": booking_date,
+        "label": cleaned_label,
+        "reference": extract_reference_from_text(normalized),
+        "amount": amount,
+        "direction": infer_direction(normalized),
+        "currency": first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount) or fallback_currency,
+        "confidence": 0.9,
+        "extraction_notes": [],
+    }
+
+
+def dedupe_bank_rows(rows):
+    seen = set()
+    deduped = []
+    for row in rows:
+        key = (row.get("booking_date"), normalize_line(row.get("label", "")).upper(), row.get("amount"), row.get("direction"))
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(row)
+    return deduped
+
+
 def heuristic_invoice_rows(extracted_text: str):
     invoice_number = first_match(
         [
@@ -180,24 +262,54 @@ def heuristic_invoice_rows(extracted_text: str):
 
 
 def heuristic_bank_rows(extracted_text: str):
+    fallback_currency = first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text)
+
+    lines = [normalize_line(line) for line in extracted_text.splitlines() if normalize_line(line)]
+    block_rows = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        if re.match(rf"^{DATE_PATTERN}\b", line):
+            block_lines = [line]
+            look_ahead = index + 1
+            while look_ahead < len(lines) and len(block_lines) < 5 and not re.match(rf"^{DATE_PATTERN}\b", lines[look_ahead]):
+                block_lines.append(lines[look_ahead])
+                look_ahead += 1
+            block_row = build_bank_row_from_block(" ".join(block_lines), fallback_currency=fallback_currency)
+            if block_row:
+                block_rows.append(block_row)
+            index = look_ahead
+            continue
+        index += 1
+
+    inline_rows = []
+    for line in lines:
+        if re.search(DATE_PATTERN, line) and re.search(AMOUNT_PATTERN, line, flags=re.IGNORECASE):
+            inline_row = build_bank_row_from_block(line, fallback_currency=fallback_currency)
+            if inline_row:
+                inline_rows.append(inline_row)
+
+    candidate_rows = dedupe_bank_rows(block_rows + inline_rows)
+    if candidate_rows:
+        return candidate_rows
+
     booking_date = first_match(
-        [r"(?:date\s*op[ée]ration|date\s*valeur|date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})"],
+        [rf"(?:date\s*op[ée]ration|date\s*valeur|date)\s*[:#-]?\s*({DATE_PATTERN})"],
         extracted_text,
     )
     label = first_match([r"(?:libell[ée]|motif|description)\s*[:#-]?\s*([^\n]+)"], extracted_text)
     reference = first_match([r"(?:r[ée]f[ée]rence|reference)\s*[:#-]?\s*([^\n]+)"], extracted_text)
     amount_block = first_match(
         [
-            r"(?:montant\s*cr[ée]dit|montant\s*d[ée]bit|cr[ée]dit|d[ée]bit|montant)\s*[:#-]?\s*([0-9\s,\.]+\s*(?:EUR|MAD|€|DH|DHS)?)"
+            r"(?:montant\s*cr[ée]dit|montant\s*d[ée]bit|cr[ée]dit|d[ée]bit|montant)\s*[:#-]?\s*(?:.*?\s)?(" + AMOUNT_PATTERN + r")"
         ],
         extracted_text,
     )
     if not amount_block:
         return []
 
-    lowered = extracted_text.lower()
-    direction = "debit" if "debit" in lowered or "débit" in lowered else "credit"
-    currency = first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount_block) or first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text)
+    direction = infer_direction(extracted_text)
+    currency = first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount_block) or fallback_currency
     row = {
         "booking_date": booking_date,
         "label": label,
