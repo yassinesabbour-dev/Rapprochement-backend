@@ -328,6 +328,8 @@ def heuristic_bank_rows(extracted_text: str):
 
 
 async def run_llm_extraction(prompt: str, api_key: str, session_id: str, file_path: str | None = None):
+    if LlmChat is None:
+        raise ValueError("Le module emergentintegrations n'est pas disponible. L'extraction PDF par LLM est desactivee.")
     chat = LlmChat(
         api_key=api_key,
         session_id=session_id,
