@@ -6,7 +6,12 @@ import tempfile
 from pathlib import Path
 
 try:n    try:
+    try:
     from emergentintegrations.llm.chat import FileContentWithMimeType, LlmChat, UserMessage
+except ImportError:
+    LlmChat = None
+    UserMessage = None
+    FileContentWithMimeType = None
 except ImportError:
     LlmChat = None
     UserMessage = None
