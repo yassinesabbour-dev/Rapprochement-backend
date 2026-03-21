@@ -5,12 +5,8 @@ import re
 import tempfile
 from pathlib import Path
 
-try:
-    from emergentintegrations.llm.chat import FileContentWithMimeType, LlmChat, UserMessage
-except ImportError:
-    LlmChat = None
-    UserMessage = None
-    FileContentWithMimeType = None
+from google import genai
+from google.genai import types
 from pypdf import PdfReader
 
 from reconciliation_engine import standardize_bank_entries, standardize_invoices
@@ -350,7 +346,7 @@ async def run_llm_extraction(prompt: str, api_key: str, session_id: str, file_pa
 
 
 async def extract_rows_from_pdf(dataset: str, file_name: str, content: bytes):
-    api_key = os.environ.get("EMERGENT_LLM_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
         raise ValueError("La clé EMERGENT_LLM_KEY est manquante pour l'analyse PDF.")
 
