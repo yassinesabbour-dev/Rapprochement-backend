@@ -5,7 +5,7 @@ import re
 import tempfile
 from pathlib import Path
 
-from emergentintegrations.llm.chat import FileContentWithMimeType, LlmChat, UserMessage
+try:n    from emergentintegrations.llm.chat import FileContentWithMimeType, LlmChat, UserMessagenexcept ImportError:n    LlmChat = Nonen    UserMessage = Nonen    FileContentWithMimeType = None
 from pypdf import PdfReader
 
 from reconciliation_engine import standardize_bank_entries, standardize_invoices
