@@ -324,25 +324,25 @@ def heuristic_bank_rows(extracted_text: str):
 
 
 async def run_llm_extraction(prompt: str, api_key: str, session_id: str, file_path: str | None = None):
-    if LlmChat is None:
-        raise ValueError("Le module emergentintegrations n'est pas disponible. L'extraction PDF par LLM est desactivee.")
-    chat = LlmChat(
-        api_key=api_key,
-        session_id=session_id,
-        system_message=SYSTEM_MESSAGE,
-    )
+    client = genai.Client(api_key=api_key)
+    model_name = PDF_MODEL[1] if file_path else TEXT_MODEL[1]
 
+    contents = []
     if file_path:
-        chat = chat.with_model(*PDF_MODEL)
-        return await chat.send_message(
-            UserMessage(
-                text=prompt,
-                file_contents=[FileContentWithMimeType(mime_type="application/pdf", file_path=file_path)],
-            )
-        )
+        with open(file_path, "rb") as f:
+            pdf_data = f.read()
+        contents.append(types.Part.from_bytes(data=pdf_data, mime_type="application/pdf"))
+    contents.append(types.Part.from_text(text=prompt))
 
-    chat = chat.with_model(*TEXT_MODEL)
-    return await chat.send_message(UserMessage(text=prompt))
+    response = await client.aio.models.generate_content(
+        model=model_name,
+        contents=contents,
+        config=types.GenerateContentConfig(
+            system_instruction=SYSTEM_MESSAGE,
+            temperature=0.1,
+        ),
+    )
+    return response.text
 
 
 async def extract_rows_from_pdf(dataset: str, file_name: str, content: bytes):
