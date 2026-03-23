@@ -127,7 +127,7 @@ def first_match(patterns, text):
 
 
 DATE_PATTERN = r"(?:\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{2,4}|\d{2}\s+\d{2}\s+\d{4})"
-AMOUNT_PATTERN = r"(?:-?\d{1,3}(?:[ .]\d{3})*|[-+]?\d+)[,\.]\d{2}(?:\s*(?:EUR|MAD|€|DH|DHS))?"
+AMOUNT_PATTERN = r"(?:-?\d{1,3}(?:[ .]\d{3})*|[-+]?\d+)[,\.]\d{2}(?:\s*(?:EUR|MAD|€|DH|DHS|DIRHAM))?"
 
 
 def normalize_line(line: str):
@@ -190,7 +190,7 @@ def build_bank_row_from_block(text: str, fallback_currency: str | None = None):
         "reference": extract_reference_from_text(normalized),
         "amount": amount,
         "direction": infer_direction(normalized),
-        "currency": normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount) or fallback_currency),
+        "currency": normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], amount) or fallback_currency),
         "confidence": 0.9,
         "extraction_notes": [],
     }
@@ -232,14 +232,14 @@ def heuristic_invoice_rows(extracted_text: str):
     )
     amount_block = first_match(
         [
-            r"(?:montant\s*(?:ttc|total)?|total\s*ttc|net\s*[aà]\s*payer)\s*[:#-]?\s*([0-9\s,\.]+\s*(?:EUR|MAD|€|DH|DHS)?)",
+            r"(?:montant\s*(?:ttc|total)?|total\s*ttc|net\s*[aà]\s*payer)\s*[:#-]?\s*([0-9\s,\.]+\s*(?:EUR|MAD|€|DH|DHS|DIRHAM)?)",
         ],
         extracted_text,
     )
     if not amount_block:
         return []
 
-    currency = first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount_block) or first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text)
+    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], amount_block) or first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], extracted_text)
     row = {
         "invoice_number": invoice_number,
         "customer_name": customer_name,
@@ -263,7 +263,7 @@ def normalize_currency(code):
     return code
 
 def heuristic_bank_rows(extracted_text: str):
-    fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text))
+    fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], extracted_text))
 
     lines = [normalize_line(line) for line in extracted_text.splitlines() if normalize_line(line)]
     block_rows = []
@@ -311,7 +311,7 @@ def heuristic_bank_rows(extracted_text: str):
         return []
 
     direction = infer_direction(extracted_text)
-    currency = first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount_block) or fallback_currency
+    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], amount_block) or fallback_currency
     row = {
         "booking_date": booking_date,
         "label": label,
