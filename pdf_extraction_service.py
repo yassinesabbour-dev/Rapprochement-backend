@@ -263,7 +263,7 @@ def normalize_currency(code):
     return code
 
 def heuristic_bank_rows(extracted_text: str):
-    fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text)
+    fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text))
 
     lines = [normalize_line(line) for line in extracted_text.splitlines() if normalize_line(line)]
     block_rows = []
