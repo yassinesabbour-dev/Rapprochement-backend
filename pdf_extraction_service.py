@@ -246,7 +246,7 @@ def heuristic_invoice_rows(extracted_text: str):
         "issue_date": issue_date,
         "due_date": due_date,
         "amount": amount_block,
-        "currency": currency,
+        "currency": normalize_currency(currency),
         "confidence": 0.95,
         "extraction_notes": [],
     }
@@ -257,8 +257,13 @@ def heuristic_invoice_rows(extracted_text: str):
     return [row]
 
 
+def normalize_currency(code):
+    if code and code.upper() in ("DH", "DHS", "DIRHAM"):
+        return "MAD"
+    return code
+
 def heuristic_bank_rows(extracted_text: str):
-    fallback_currency = first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text)
+    fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], extracted_text)
 
     lines = [normalize_line(line) for line in extracted_text.splitlines() if normalize_line(line)]
     block_rows = []
@@ -313,7 +318,7 @@ def heuristic_bank_rows(extracted_text: str):
         "reference": reference,
         "amount": amount_block,
         "direction": direction,
-        "currency": currency,
+        "currency": normalize_currency(currency),
         "confidence": 0.92,
         "extraction_notes": [],
     }
