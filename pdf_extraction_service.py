@@ -257,12 +257,76 @@ def heuristic_invoice_rows(extracted_text: str):
     return [row]
 
 
+def parse_attijariwafa_line(line):
+    """Parse a single Attijariwafa bank statement line in layout mode."""
+    import re
+    line = line.strip()
+    if not line or len(line) < 20:
+        return None
+    # Pattern: CODE DD MM LABEL DD MM YYYY AMOUNT
+    m = re.match(
+        r'^(\w{4,8})'           # code
+        r'(\d{2})\s+(\d{2})\s+' # booking day month
+        r'(.+?)'                 # label
+        r'(\d{2})\s+(\d{2})\s+(\d{4})\s+' # value date
+        r'([\d\s]+[,\.]\d{2})',  # amount at end
+        line
+    )
+    if not m:
+        return None
+    code = m.group(1)
+    day, month = m.group(2), m.group(3)
+    label = m.group(4).strip()
+    val_day, val_month, val_year = m.group(5), m.group(6), m.group(7)
+    amount_str = m.group(8).replace(' ', '')
+    try:
+        amount = float(amount_str.replace(',', '.'))
+    except ValueError:
+        return None
+    booking_date = f"{val_year}-{val_month}-{val_day}"
+    return {
+        "booking_date": booking_date,
+        "label": label,
+        "reference": code,
+        "amount": amount,
+        "currency": "MAD",
+        "confidence": 0.95,
+        "extraction_notes": [],
+    }
+
+def parse_attijariwafa_statement(text):
+    """Parse full Attijariwafa statement, detecting debit/credit by column position."""
+    lines = text.splitlines()
+    rows = []
+    for line in lines:
+        if any(kw in line.upper() for kw in ["SOLDE DEPART", "SOLDE FINAL", "TOTAL MOUVEMENTS", "PAGE", "CODE", "LIBELLE", "VALEUR"]):
+            continue
+        parsed = parse_attijariwafa_line(line)
+        if parsed:
+            # Detect direction by column position of amount
+            stripped = line.rstrip()
+            amount_end = len(stripped)
+            # Credit amounts are typically at column 75+, debit at column 55-74
+            amount_str = str(parsed["amount"]).replace(".", ",")
+            pos = stripped.rfind(amount_str.split(",")[0])
+            if pos > 70:
+                parsed["direction"] = "credit"
+            else:
+                parsed["direction"] = "debit"
+            rows.append(parsed)
+    return rows
+
 def normalize_currency(code):
     if code and code.upper() in ("DH", "DHS", "DIRHAM"):
         return "MAD"
     return code
 
 def heuristic_bank_rows(extracted_text: str):
+    # Try Attijariwafa-specific parser first
+    if "attijariwafa" in extracted_text.lower() or "DIRHAM" in extracted_text:
+        atw_rows = parse_attijariwafa_statement(extracted_text)
+        if atw_rows:
+            return atw_rows
     fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], extracted_text))
 
     lines = [normalize_line(line) for line in extracted_text.splitlines() if normalize_line(line)]
