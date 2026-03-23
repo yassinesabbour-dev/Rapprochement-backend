@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import io
 import json
 import os
@@ -13,8 +14,8 @@ from reconciliation_engine import standardize_bank_entries, standardize_invoices
 
 
 SYSTEM_MESSAGE = (
-    "Tu extrais des données structurées depuis des PDF de factures et relevés bancaires en français. "
-    "Tu réponds uniquement en JSON strict, sans texte autour."
+    "Tu extrais des donnÃ©es structurÃ©es depuis des PDF de factures et relevÃ©s bancaires en franÃ§ais. "
+    "Tu rÃ©ponds uniquement en JSON strict, sans texte autour."
 )
 TEXT_MODEL = ("gemini", "gemini-2.5-flash")
 PDF_MODEL = ("gemini", "gemini-2.5-flash")
@@ -23,7 +24,7 @@ PDF_MODEL = ("gemini", "gemini-2.5-flash")
 def build_prompt(dataset: str, file_name: str) -> str:
     if dataset == "invoices":
         return f"""
-Analyse ce PDF de facture nommé {file_name}.
+Analyse ce PDF de facture nommÃ© {file_name}.
 
 Retourne UNIQUEMENT un JSON valide de la forme :
 {{
@@ -40,19 +41,19 @@ Retourne UNIQUEMENT un JSON valide de la forme :
       "extraction_notes": ["liste des champs incertains ou manquants"]
     }}
   ],
-  "summary": "résumé court"
+  "summary": "rÃ©sumÃ© court"
 }}
 
 Consignes :
-- Extrais toutes les factures détectables du PDF.
-- Si le PDF est scanné, lis-le visuellement.
-- Détecte les montants TTC utiles pour le rapprochement.
-- Si une valeur manque ou paraît ambiguë, mets null si nécessaire et ajoute une note dans extraction_notes.
+- Extrais toutes les factures dÃ©tectables du PDF.
+- Si le PDF est scannÃ©, lis-le visuellement.
+- DÃ©tecte les montants TTC utiles pour le rapprochement.
+- Si une valeur manque ou paraÃ®t ambiguÃ«, mets null si nÃ©cessaire et ajoute une note dans extraction_notes.
 - Les devises attendues sont surtout EUR et MAD.
-- N'invente jamais de donnée.
+- N'invente jamais de donnÃ©e.
 """
     return f"""
-Analyse ce PDF de relevé bancaire nommé {file_name}.
+Analyse ce PDF de relevÃ© bancaire nommÃ© {file_name}.
 
 Retourne UNIQUEMENT un JSON valide de la forme :
 {{
@@ -69,17 +70,17 @@ Retourne UNIQUEMENT un JSON valide de la forme :
       "extraction_notes": ["liste des champs incertains ou manquants"]
     }}
   ],
-  "summary": "résumé court"
+  "summary": "rÃ©sumÃ© court"
 }}
 
 Consignes :
-- Extrais toutes les lignes utiles du relevé.
-- Garde chaque opération bancaire sur une ligne distincte.
-- Si le PDF est scanné, lis-le visuellement.
-- Le champ amount représente le montant de la ligne; direction indique crédit ou débit.
-- Si une valeur manque ou paraît ambiguë, mets null si nécessaire et ajoute une note dans extraction_notes.
+- Extrais toutes les lignes utiles du relevÃ©.
+- Garde chaque opÃ©ration bancaire sur une ligne distincte.
+- Si le PDF est scannÃ©, lis-le visuellement.
+- Le champ amount reprÃ©sente le montant de la ligne; direction indique crÃ©dit ou dÃ©bit.
+- Si une valeur manque ou paraÃ®t ambiguÃ«, mets null si nÃ©cessaire et ajoute une note dans extraction_notes.
 - Les devises attendues sont surtout EUR et MAD.
-- N'invente jamais de donnée.
+- N'invente jamais de donnÃ©e.
 """
 
 
@@ -104,7 +105,7 @@ def extract_json_payload(response_text: str):
     except json.JSONDecodeError:
         match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
         if not match:
-            raise ValueError("Réponse OCR invalide : JSON introuvable.")
+            raise ValueError("RÃ©ponse OCR invalide : JSON introuvable.")
         return json.loads(match.group(0))
 
 
@@ -127,7 +128,7 @@ def first_match(patterns, text):
 
 
 DATE_PATTERN = r"(?:\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{2,4}|\d{2}\s+\d{2}\s+\d{4})"
-AMOUNT_PATTERN = r"(?:-?\d{1,3}(?:[ .]\d{3})*|[-+]?\d+)[,\.]\d{2}(?:\s*(?:EUR|MAD|€|DH|DHS|DIRHAM))?"
+AMOUNT_PATTERN = r"(?:-?\d{1,3}(?:[ .]\d{3})*|[-+]?\d+)[,\.]\d{2}(?:\s*(?:EUR|MAD|â¬|DH|DHS|DIRHAM))?"
 
 
 def normalize_line(line: str):
@@ -136,8 +137,8 @@ def normalize_line(line: str):
 
 def infer_direction(text: str):
     lowered = normalize_line(text).lower()
-    debit_markers = ["débit", "debit", "prlv", "prélèvement", "prelevement", "carte", "frais", "commission", "retrait", "virement emis"]
-    credit_markers = ["crédit", "credit", "virement", "versement", "vir recu", "vir reçu", "encaissement", "remise", "depot", "dépôt"]
+    debit_markers = ["dÃ©bit", "debit", "prlv", "prÃ©lÃ¨vement", "prelevement", "carte", "frais", "commission", "retrait", "virement emis"]
+    credit_markers = ["crÃ©dit", "credit", "virement", "versement", "vir recu", "vir reÃ§u", "encaissement", "remise", "depot", "dÃ©pÃ´t"]
 
     if any(marker in lowered for marker in debit_markers):
         return "debit"
@@ -149,7 +150,7 @@ def infer_direction(text: str):
 def extract_reference_from_text(text: str):
     explicit_ref = first_match(
         [
-            r"(?:r[ée]f[ée]rence|ref|n[°o])\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]{3,})",
+            r"(?:r[Ã©e]f[Ã©e]rence|ref|n[Â°o])\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]{3,})",
         ],
         text,
     )
@@ -179,7 +180,7 @@ def build_bank_row_from_block(text: str, fallback_currency: str | None = None):
     for date in dates[:2]:
         cleaned_label = cleaned_label.replace(date, " ", 1)
     cleaned_label = cleaned_label.replace(amount, " ", 1)
-    cleaned_label = re.sub(r"\b(?:date|valeur|op[ée]ration|d[ée]bit|cr[ée]dit|solde|page)\b", " ", cleaned_label, flags=re.IGNORECASE)
+    cleaned_label = re.sub(r"\b(?:date|valeur|op[Ã©e]ration|d[Ã©e]bit|cr[Ã©e]dit|solde|page)\b", " ", cleaned_label, flags=re.IGNORECASE)
     cleaned_label = normalize_line(cleaned_label)
     if len(cleaned_label) < 3:
         return None
@@ -190,7 +191,7 @@ def build_bank_row_from_block(text: str, fallback_currency: str | None = None):
         "reference": extract_reference_from_text(normalized),
         "amount": amount,
         "direction": infer_direction(normalized),
-        "currency": normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], amount) or fallback_currency),
+        "currency": normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|â¬)\b"], amount) or fallback_currency),
         "confidence": 0.9,
         "extraction_notes": [],
     }
@@ -211,16 +212,16 @@ def dedupe_bank_rows(rows):
 def heuristic_invoice_rows(extracted_text: str):
     invoice_number = first_match(
         [
-            r"(?:num[e�]ro\s*(?:de\s*)?facture|invoice\s*number|r[�e]f[�e]rence\s*facture)\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]+)",
-            r"(?:facture|fact)\s*[:#n�N�]*\s*([A-Z0-9][A-Z0-9\-_/]*\d+[A-Z0-9\-_/]*)",
-            r"N[�o]\s*([A-Z0-9][A-Z0-9\-_/]*\d+[A-Z0-9\-_/]*)",
-            r"JRE\s*N[�o]\s*([A-Z0-9][A-Z0-9\-_/]*)",
+            r"(?:num[eé]ro\s*(?:de\s*)?facture|invoice\s*number|r[ée]f[ée]rence\s*facture)\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]+)",
+            r"(?:facture|fact)\s*[:#n°N°]*\s*([A-Z0-9][A-Z0-9\-_/]*\d+[A-Z0-9\-_/]*)",
+            r"N[°o]\s*([A-Z0-9][A-Z0-9\-_/]*\d+[A-Z0-9\-_/]*)",
+            r"JRE\s*N[°o]\s*([A-Z0-9][A-Z0-9\-_/]*)",
         ],
         extracted_text,
     )
     customer_name = first_match(
         [
-            r"(?:client|nom\s*client|soci[�e]t[�e]|company)\s*[:#-]?\s*([^\n]+)",
+            r"(?:client|nom\s*client|soci[ée]t[ée]|company)\s*[:#-]?\s*([^\n]+)",
         ],
         extracted_text,
     )
@@ -228,7 +229,7 @@ def heuristic_invoice_rows(extracted_text: str):
     if customer_name and "SOBETRAC" in customer_name.upper():
         supplier = first_match(
             [
-                r"(?:STE|SOCIETE|SOCI�T�)\s+([A-Z][A-Z\s]{3,30}(?:TRANS|SARL|SA|SARLAU|LOG|FRET))",
+                r"(?:STE|SOCIETE|SOCIÉTÉ)\s+([A-Z][A-Z\s]{3,30}(?:TRANS|SARL|SA|SARLAU|LOG|FRET))",
                 r"^\s*((?:STE|SOCIETE)\s+[A-Z][A-Z\s]+)$",
             ],
             extracted_text,
@@ -245,25 +246,25 @@ def heuristic_invoice_rows(extracted_text: str):
                     break
     issue_date = first_match(
         [
-            r"(?:date\s*facture|date\s*[�e]mission|date)\s*[:#-]?\s*(\d{2}[/-]\d{2}[/-]\d{4})",
-            r"(?:date\s*facture|date\s*[�e]mission|date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2})",
+            r"(?:date\s*facture|date\s*[ée]mission|date)\s*[:#-]?\s*(\d{2}[/-]\d{2}[/-]\d{4})",
+            r"(?:date\s*facture|date\s*[ée]mission|date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2})",
             r"(?:LE|le)\s*[:#-]?\s*(\d{2}[/-]\d{2}[/-]\d{4})",
         ],
         extracted_text,
     )
     due_date = first_match(
-        [r"(?:date\s*[�e]ch[�e]ance|[�e]ch[�e]ance|due\s*date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})"],
+        [r"(?:date\s*[ée]ch[ée]ance|[ée]ch[ée]ance|due\s*date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})"],
         extracted_text,
     )
     amount_block = first_match(
         [
-            r"(?:total\s*ttc|montant\s*(?:ttc|total)?|net\s*[a�]\s*payer)\s*[:#-]?\s*([0-9\s,\.]+\s*(?:EUR|MAD|�|DH|DHS|DIRHAM)?)",
+            r"(?:total\s*ttc|montant\s*(?:ttc|total)?|net\s*[aà]\s*payer)\s*[:#-]?\s*([0-9\s,\.]+\s*(?:EUR|MAD||DH|DHS|DIRHAM)?)",
         ],
         extracted_text,
     )
     if not amount_block:
         return []
-    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|�)\b"], amount_block) or first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|�)\b"], extracted_text)
+    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|)\b"], amount_block) or first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|)\b"], extracted_text)
     row = {
         "invoice_number": invoice_number,
         "customer_name": customer_name,
@@ -277,7 +278,7 @@ def heuristic_invoice_rows(extracted_text: str):
     missing = [key for key in ["invoice_number", "issue_date", "amount"] if not row.get(key)]
     if missing:
         row["confidence"] = 0.78
-        row["extraction_notes"] = [f"Champs � v�rifier: {\', \'.join(missing)}"]
+        row["extraction_notes"] = [f"Champs à vérifier: {\', \'.join(missing)}"]
     return [row]
 
 def parse_attijariwafa_line(line):
@@ -350,7 +351,7 @@ def heuristic_bank_rows(extracted_text: str):
         atw_rows = parse_attijariwafa_statement(extracted_text)
         if atw_rows:
             return atw_rows
-    fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], extracted_text))
+    fallback_currency = normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|â¬)\b"], extracted_text))
 
     lines = [normalize_line(line) for line in extracted_text.splitlines() if normalize_line(line)]
     block_rows = []
@@ -383,14 +384,14 @@ def heuristic_bank_rows(extracted_text: str):
         return candidate_rows
 
     booking_date = first_match(
-        [rf"(?:date\s*op[ée]ration|date\s*valeur|date)\s*[:#-]?\s*({DATE_PATTERN})"],
+        [rf"(?:date\s*op[Ã©e]ration|date\s*valeur|date)\s*[:#-]?\s*({DATE_PATTERN})"],
         extracted_text,
     )
-    label = first_match([r"(?:libell[ée]|motif|description)\s*[:#-]?\s*([^\n]+)"], extracted_text)
-    reference = first_match([r"(?:r[ée]f[ée]rence|reference)\s*[:#-]?\s*([^\n]+)"], extracted_text)
+    label = first_match([r"(?:libell[Ã©e]|motif|description)\s*[:#-]?\s*([^\n]+)"], extracted_text)
+    reference = first_match([r"(?:r[Ã©e]f[Ã©e]rence|reference)\s*[:#-]?\s*([^\n]+)"], extracted_text)
     amount_block = first_match(
         [
-            r"(?:montant\s*cr[ée]dit|montant\s*d[ée]bit|cr[ée]dit|d[ée]bit|montant)\s*[:#-]?\s*(?:.*?\s)?(" + AMOUNT_PATTERN + r")"
+            r"(?:montant\s*cr[Ã©e]dit|montant\s*d[Ã©e]bit|cr[Ã©e]dit|d[Ã©e]bit|montant)\s*[:#-]?\s*(?:.*?\s)?(" + AMOUNT_PATTERN + r")"
         ],
         extracted_text,
     )
@@ -398,7 +399,7 @@ def heuristic_bank_rows(extracted_text: str):
         return []
 
     direction = infer_direction(extracted_text)
-    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|€)\b"], amount_block) or fallback_currency
+    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|â¬)\b"], amount_block) or fallback_currency
     row = {
         "booking_date": booking_date,
         "label": label,
@@ -412,7 +413,7 @@ def heuristic_bank_rows(extracted_text: str):
     missing = [key for key in ["booking_date", "label", "amount"] if not row.get(key)]
     if missing:
         row["confidence"] = 0.75
-        row["extraction_notes"] = [f"Champs à vérifier: {', '.join(missing)}"]
+        row["extraction_notes"] = [f"Champs Ã  vÃ©rifier: {', '.join(missing)}"]
     return [row]
 
 
@@ -441,7 +442,7 @@ async def run_llm_extraction(prompt: str, api_key: str, session_id: str, file_pa
 async def extract_rows_from_pdf(dataset: str, file_name: str, content: bytes):
     api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("EMERGENT_LLM_KEY")
     if not api_key:
-        raise ValueError("La clé EMERGENT_LLM_KEY est manquante pour l'analyse PDF.")
+        raise ValueError("La clÃ© EMERGENT_LLM_KEY est manquante pour l'analyse PDF.")
 
     temp_path = None
     try:
@@ -479,7 +480,7 @@ async def extract_rows_from_pdf(dataset: str, file_name: str, content: bytes):
         payload = extract_json_payload(response)
         rows = payload.get("rows") or []
         if not rows:
-            raise ValueError("Aucune donnée exploitable n'a été détectée dans le PDF.")
+            raise ValueError("Aucune donnÃ©e exploitable n'a Ã©tÃ© dÃ©tectÃ©e dans le PDF.")
 
         if dataset == "invoices":
             return standardize_invoices(rows), payload.get("summary") or "Factures extraites depuis PDF."
@@ -488,7 +489,7 @@ async def extract_rows_from_pdf(dataset: str, file_name: str, content: bytes):
         message = str(exc)
         if "budget" in message.lower() or "credit" in message.lower():
             raise ValueError(
-                "Le PDF scanné nécessite plus de crédit d'analyse que disponible actuellement. Réessayez plus tard ou utilisez un PDF texte/export si possible."
+                "Le PDF scannÃ© nÃ©cessite plus de crÃ©dit d'analyse que disponible actuellement. RÃ©essayez plus tard ou utilisez un PDF texte/export si possible."
             ) from exc
         raise
     finally:
