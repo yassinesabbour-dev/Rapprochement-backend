@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import csv
 import io
 import logging
@@ -189,7 +190,7 @@ async def save_workspace_document(workspace):
 # Add your routes to the router instead of directly to app
 @api_router.get("/")
 async def root():
-    return {"message": "API de rapprochement factures / relevés disponible."}
+    return {"message": "API de rapprochement factures / relevÃ©s disponible."}
 
 
 @api_router.get("/reconciliation/workspace", response_model=ReconciliationWorkspace)
@@ -208,7 +209,7 @@ async def load_demo_workspace():
 @api_router.post("/reconciliation/reset", response_model=ReconciliationWorkspace)
 async def reset_workspace():
     workspace = recalculate_workspace(build_empty_workspace())
-    add_activity(workspace, "reset", "Atelier vidé. Vous pouvez réimporter vos fichiers.")
+    add_activity(workspace, "reset", "Atelier vidÃ©. Vous pouvez rÃ©importer vos fichiers.")
     stored = await save_workspace_document(workspace)
     return stored
 
@@ -220,7 +221,7 @@ async def delete_source(source_id: str):
     # Find the source to delete
     source = next((s for s in workspace.get("imported_sources", []) if s["id"] == source_id), None)
     if not source:
-        raise HTTPException(status_code=404, detail="Source non trouv�e.")
+        raise HTTPException(status_code=404, detail="Source non trouvée.")
     dataset = source["dataset"]
     # Remove the source
     workspace["imported_sources"] = [s for s in workspace["imported_sources"] if s["id"] != source_id]
@@ -231,7 +232,7 @@ async def delete_source(source_id: str):
         workspace["invoices"] = [i for i in workspace.get("invoices", []) if i.get("source_id") != source_id]
     # Recalculate and save
     workspace = recalculate_workspace(workspace)
-    add_activity(workspace, "delete", f"Source {source['file_name']} supprim�e.")
+    add_activity(workspace, "delete", f"Source {source['file_name']} supprimée.")
     stored = await save_workspace_document(workspace)
     return stored
 
@@ -254,7 +255,7 @@ async def import_dataset(dataset: Literal["invoices", "bank"], file: UploadFile 
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         logger.exception("Import failure")
-        raise HTTPException(status_code=400, detail="Le fichier n'a pas pu être lu.") from exc
+        raise HTTPException(status_code=400, detail="Le fichier n'a pas pu Ãªtre lu.") from exc
 
     target_key = "invoices_raw" if dataset == "invoices" else "bank_entries_raw"
     workspace[target_key] = [*workspace.get(target_key, []), *parsed_rows]
@@ -272,7 +273,7 @@ async def import_dataset(dataset: Literal["invoices", "bank"], file: UploadFile 
         workspace,
         "import",
         (
-            f"{len(parsed_rows)} lignes importées dans {('factures' if dataset == 'invoices' else 'relevé bancaire')} depuis {file.filename}."
+            f"{len(parsed_rows)} lignes importÃ©es dans {('factures' if dataset == 'invoices' else 'relevÃ© bancaire')} depuis {file.filename}."
             + (f" {extraction_summary}" if extraction_summary else "")
         ),
     )
@@ -289,7 +290,7 @@ async def run_reconciliation():
     add_activity(
         updated_workspace,
         "run",
-        f"Rapprochement exécuté : {metrics.get('matched_invoices', 0)} factures soldées, {metrics.get('to_review', 0)} correspondances à vérifier.",
+        f"Rapprochement exÃ©cutÃ© : {metrics.get('matched_invoices', 0)} factures soldÃ©es, {metrics.get('to_review', 0)} correspondances Ã  vÃ©rifier.",
     )
     stored = await save_workspace_document(updated_workspace)
     return stored
@@ -298,14 +299,14 @@ async def run_reconciliation():
 @api_router.post("/reconciliation/manual-match", response_model=ReconciliationWorkspace)
 async def create_manual_match(payload: ManualMatchInput):
     if not payload.invoice_ids:
-        raise HTTPException(status_code=400, detail="Sélectionnez au moins une facture.")
+        raise HTTPException(status_code=400, detail="SÃ©lectionnez au moins une facture.")
 
     workspace = await get_workspace_document()
     bank_entry = find_matching_record(workspace.get("bank_entries", []), payload.bank_entry_id)
     if not bank_entry:
-        raise HTTPException(status_code=400, detail="Le virement sélectionné est introuvable.")
+        raise HTTPException(status_code=400, detail="Le virement sÃ©lectionnÃ© est introuvable.")
     if bank_entry.get("direction") != "credit" or bank_entry.get("remaining_amount", 0) <= 0:
-        raise HTTPException(status_code=400, detail="Le virement sélectionné n'a plus de montant à affecter.")
+        raise HTTPException(status_code=400, detail="Le virement sÃ©lectionnÃ© n'a plus de montant Ã  affecter.")
 
     open_invoices = {
         invoice["id"]: invoice
@@ -317,17 +318,17 @@ async def create_manual_match(payload: ManualMatchInput):
     if invalid_invoice_ids:
         raise HTTPException(
             status_code=400,
-            detail="Certaines factures sélectionnées sont introuvables ou déjà soldées.",
+            detail="Certaines factures sÃ©lectionnÃ©es sont introuvables ou dÃ©jÃ  soldÃ©es.",
         )
 
     if any(not currency_matches(bank_entry, open_invoices[invoice_id]) for invoice_id in unique_invoice_ids):
         raise HTTPException(
             status_code=400,
-            detail="Le virement et les factures sélectionnées doivent être dans la même devise.",
+            detail="Le virement et les factures sÃ©lectionnÃ©es doivent Ãªtre dans la mÃªme devise.",
         )
 
     workspace = add_manual_link(workspace, payload.bank_entry_id, unique_invoice_ids, payload.notes)
-    add_activity(workspace, "manual", "Association manuelle ajoutée au rapprochement.")
+    add_activity(workspace, "manual", "Association manuelle ajoutÃ©e au rapprochement.")
     updated_workspace = recalculate_workspace(workspace)
     stored = await save_workspace_document(updated_workspace)
     return stored
