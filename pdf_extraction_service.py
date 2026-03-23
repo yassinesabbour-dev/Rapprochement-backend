@@ -286,6 +286,7 @@ def heuristic_bank_rows(extracted_text: str):
                 inline_rows.append(inline_row)
 
     candidate_rows = dedupe_bank_rows(block_rows + inline_rows)
+    candidate_rows = [r for r in candidate_rows if not any(kw in (r.get("label") or "").upper() for kw in ["SOLDE DEPART", "SOLDE FINAL", "DEPART AU", "FINAL AU", "TOTAL MOUVEMENTS"])]
     if candidate_rows:
         return candidate_rows
 
