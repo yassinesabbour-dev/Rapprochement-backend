@@ -190,7 +190,7 @@ def build_bank_row_from_block(text: str, fallback_currency: str | None = None):
         "reference": extract_reference_from_text(normalized),
         "amount": amount,
         "direction": infer_direction(normalized),
-        "currency": first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount) or fallback_currency,
+        "currency": normalize_currency(first_match([r"\b(EUR|MAD|DH|DHS|€)\b"], amount) or fallback_currency),
         "confidence": 0.9,
         "extraction_notes": [],
     }
