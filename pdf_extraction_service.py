@@ -211,35 +211,59 @@ def dedupe_bank_rows(rows):
 def heuristic_invoice_rows(extracted_text: str):
     invoice_number = first_match(
         [
-            r"(?:num[e√©]ro\s*(?:de\s*)?facture|invoice\s*number|r[√©e]f[√©e]rence\s*facture)\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]+)",
-            r"^facture\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]+)$",
+            r"(?:num[eÈ]ro\s*(?:de\s*)?facture|invoice\s*number|r[Èe]f[Èe]rence\s*facture)\s*[:#-]?\s*([A-Z0-9][A-Z0-9\-_/]+)",
+            r"(?:facture|fact)\s*[:#n∞N∞]*\s*([A-Z0-9][A-Z0-9\-_/]*\d+[A-Z0-9\-_/]*)",
+            r"N[∞o]\s*([A-Z0-9][A-Z0-9\-_/]*\d+[A-Z0-9\-_/]*)",
+            r"JRE\s*N[∞o]\s*([A-Z0-9][A-Z0-9\-_/]*)",
         ],
         extracted_text,
     )
     customer_name = first_match(
         [
-            r"(?:client|nom\s*client|soci[√©e]t[√©e]|company)\s*[:#-]?\s*([^\n]+)",
+            r"(?:client|nom\s*client|soci[Èe]t[Èe]|company)\s*[:#-]?\s*([^\n]+)",
         ],
         extracted_text,
     )
+    # If customer is SOBETRAC, find the supplier name instead
+    if customer_name and "SOBETRAC" in customer_name.upper():
+        supplier = first_match(
+            [
+                r"(?:STE|SOCIETE|SOCI…T…)\s+([A-Z][A-Z\s]{3,30}(?:TRANS|SARL|SA|SARLAU|LOG|FRET))",
+                r"^\s*((?:STE|SOCIETE)\s+[A-Z][A-Z\s]+)$",
+            ],
+            extracted_text,
+        )
+        if supplier and "SOBETRAC" not in supplier.upper():
+            customer_name = supplier.strip()
+        else:
+            # Try extracting from filename-like patterns or header
+            header_lines = extracted_text.split("\n")[:10]
+            for hl in header_lines:
+                hl = hl.strip()
+                if len(hl) > 4 and "SOBETRAC" not in hl.upper() and any(kw in hl.upper() for kw in ["TRANS", "LOG", "FRET", "STE", "SARL"]):
+                    customer_name = hl.strip()
+                    break
     issue_date = first_match(
-        [r"(?:date\s*facture|date\s*[√©e]mission|date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})"],
+        [
+            r"(?:date\s*facture|date\s*[Èe]mission|date)\s*[:#-]?\s*(\d{2}[/-]\d{2}[/-]\d{4})",
+            r"(?:date\s*facture|date\s*[Èe]mission|date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2})",
+            r"(?:LE|le)\s*[:#-]?\s*(\d{2}[/-]\d{2}[/-]\d{4})",
+        ],
         extracted_text,
     )
     due_date = first_match(
-        [r"(?:date\s*[√©e]ch[√©e]ance|[√©e]ch[√©e]ance|due\s*date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})"],
+        [r"(?:date\s*[Èe]ch[Èe]ance|[Èe]ch[Èe]ance|due\s*date)\s*[:#-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})"],
         extracted_text,
     )
     amount_block = first_match(
         [
-            r"(?:montant\s*(?:ttc|total)?|total\s*ttc|net\s*[a√†]\s*payer)\s*[:#-]?\s*([0-9\s,\.]+\s*(?:EUR|MAD|‚Ç¨|DH|DHS|DIRHAM)?)",
+            r"(?:total\s*ttc|montant\s*(?:ttc|total)?|net\s*[a‡]\s*payer)\s*[:#-]?\s*([0-9\s,\.]+\s*(?:EUR|MAD|Ä|DH|DHS|DIRHAM)?)",
         ],
         extracted_text,
     )
     if not amount_block:
         return []
-
-    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|‚Ç¨)\b"], amount_block) or first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|‚Ç¨)\b"], extracted_text)
+    currency = first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|Ä)\b"], amount_block) or first_match([r"\b(EUR|MAD|DH|DHS|DIRHAM|Ä)\b"], extracted_text)
     row = {
         "invoice_number": invoice_number,
         "customer_name": customer_name,
@@ -253,9 +277,8 @@ def heuristic_invoice_rows(extracted_text: str):
     missing = [key for key in ["invoice_number", "issue_date", "amount"] if not row.get(key)]
     if missing:
         row["confidence"] = 0.78
-        row["extraction_notes"] = [f"Champs √† v√©rifier: {', '.join(missing)}"]
+        row["extraction_notes"] = [f"Champs ‡ vÈrifier: {\', \'.join(missing)}"]
     return [row]
-
 
 def parse_attijariwafa_line(line):
     """Parse a single Attijariwafa bank statement line in layout mode."""
