@@ -213,6 +213,28 @@ async def reset_workspace():
     return stored
 
 
+
+@api_router.delete("/reconciliation/source/{source_id}", response_model=ReconciliationWorkspace)
+async def delete_source(source_id: str):
+    workspace = await get_workspace_document()
+    # Find the source to delete
+    source = next((s for s in workspace.get("imported_sources", []) if s["id"] == source_id), None)
+    if not source:
+        raise HTTPException(status_code=404, detail="Source non trouvée.")
+    dataset = source["dataset"]
+    # Remove the source
+    workspace["imported_sources"] = [s for s in workspace["imported_sources"] if s["id"] != source_id]
+    # Remove entries from this source
+    if dataset == "bank":
+        workspace["bank_entries"] = [e for e in workspace.get("bank_entries", []) if e.get("source_id") != source_id]
+    elif dataset == "invoices":
+        workspace["invoices"] = [i for i in workspace.get("invoices", []) if i.get("source_id") != source_id]
+    # Recalculate and save
+    workspace = recalculate_workspace(workspace)
+    add_activity(workspace, "delete", f"Source {source['file_name']} supprimée.")
+    stored = await save_workspace_document(workspace)
+    return stored
+
 @api_router.post("/reconciliation/import/{dataset}", response_model=ReconciliationWorkspace)
 async def import_dataset(dataset: Literal["invoices", "bank"], file: UploadFile = File(...)):
     workspace = await get_workspace_document()
