@@ -112,7 +112,7 @@ def extract_text_from_pdf(content: bytes):
     reader = PdfReader(io.BytesIO(content))
     pages = []
     for page in reader.pages:
-        page_text = (page.extract_text() or "").strip()
+        page_text = (page.extract_text(extraction_mode="layout") or "").strip()
         if page_text:
             pages.append(page_text)
     return "\n\n".join(pages).strip()
@@ -126,7 +126,7 @@ def first_match(patterns, text):
     return None
 
 
-DATE_PATTERN = r"(?:\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{2,4})"
+DATE_PATTERN = r"(?:\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{2,4}|\d{2}\s+\d{2}\s+\d{4})"
 AMOUNT_PATTERN = r"(?:-?\d{1,3}(?:[ .]\d{3})*|[-+]?\d+)[,\.]\d{2}(?:\s*(?:EUR|MAD|€|DH|DHS))?"
 
 
