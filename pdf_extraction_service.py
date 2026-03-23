@@ -278,7 +278,7 @@ def heuristic_invoice_rows(extracted_text: str):
     missing = [key for key in ["invoice_number", "issue_date", "amount"] if not row.get(key)]
     if missing:
         row["confidence"] = 0.78
-        row["extraction_notes"] = [f"Champs à vérifier: {\', \'.join(missing)}"]
+        row["extraction_notes"] = [f"Champs à vérifier: {', '.join(missing)}"]
     return [row]
 
 def parse_attijariwafa_line(line):
