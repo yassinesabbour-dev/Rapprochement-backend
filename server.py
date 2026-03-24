@@ -3,6 +3,19 @@ import csv
 import io
 import logging
 import os
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Mongo client placeholders — initialisation lors du startup
+client = None
+db = None
+
+WORKSPACE_COLLECTION = "reconciliation_workspaces"
 from pathlib import Path
 from typing import List, Literal, Optional
 
