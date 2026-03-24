@@ -378,7 +378,26 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+from motor.motor_asyncio import AsyncIOMotorClient
 
+@app.on_event("startup")
+async def startup_db_client():
+    global client, db
+    mongo_url = os.getenv("MONGO_URL")
+    db_name = os.getenv("DB_NAME")
+    if not mongo_url or not db_name:
+        logger.error("MONGO_URL et/ou DB_NAME non définis dans l'environnement.")
+        raise RuntimeError("MONGO_URL et DB_NAME doivent être définis dans l'environnement.")
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[db_name]
+    logger.info("Connexion à MongoDB établie.")
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    global client
+    if client:
+        client.close()
+        logger.info("Connexion MongoDB fermée.")
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
